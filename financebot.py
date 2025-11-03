@@ -51,19 +51,45 @@ def today_date():
     return datetime.now(pytz.timezone("Asia/Shanghai")).date()
 
 # 爬取网页正文 (用于 AI 分析，但不展示)
-def fetch_article_text(url):
+def fetch_article_text(url, retries=3):
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/123.0.0.0 Safari/537.36"
+        ),
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"，
+        "Referer": "https://www.google.com/",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    }
+
+    for attempt 在 range(1, retries + 1):
+        try:
+            print(f"📰 正在爬取文章内容（第 {attempt} 次尝试）: {url}")
+            article = Article(url)
+            article.download(input_html=None, headers=headers)
+            article.parse()
+            text = article.text.strip()[:1500]
+            if text:
+                return text
+            else:
+                print(f"⚠️ 文章内容为空: {url}")
+        except Exception as e:
+            print(f"❌ 文章爬取失败: {url}（第 {attempt} 次）错误: {e}")
+            time.sleep(2 * attempt)
+
+    # 降级策略：尝试直接抓网页HTML前1000字符作为摘要
     try:
-        print(f"📰 正在爬取文章内容: {url}")
-        article = Article(url)
-        article.download()
-        article.parse()
-        text = article.text[:1500]  # 限制长度，防止超出 API 输入限制
-        if not text:
-            print(f"⚠️ 文章内容为空: {url}")
-        return text
+        print(f"⚠️ 使用降级方案: 直接抓取HTML摘要 {url}")
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 200:
+            snippet = resp.text[:1000]
+            return f"（未能完整抓取正文，以下为网页摘要）\n{snippet}"
     except Exception as e:
-        print(f"❌ 文章爬取失败: {url}，错误: {e}")
-        return "（未能获取文章正文）"
+        print(f"❌ 降级方案也失败: {e}")
+
+    return "（未能获取文章正文）"
+
 
 # 添加 User-Agent 头
 def fetch_feed_with_headers(url):
