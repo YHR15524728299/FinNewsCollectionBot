@@ -147,13 +147,11 @@ def fetch_article_text(url, retries=3, use_render=True):
     print(f"🚫 最终抓取失败: {url}")
     return "（抓取失败）"
 
-
 def fetch_feed_with_headers(url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     return feedparser.parse(url, request_headers=headers)
-
 
 def fetch_feed_with_retry(url, retries=3, delay=5):
     for i in range(retries):
@@ -168,8 +166,6 @@ def fetch_feed_with_retry(url, retries=3, delay=5):
         time.sleep(delay)
     print(f"❌ 跳过 {url}, 尝试 {retries} 次后仍失败。")
     return None
-
-
 
 def fetch_rss_articles(rss_feeds, max_per_source=5):
     news_data = {}
@@ -186,19 +182,21 @@ def fetch_rss_articles(rss_feeds, max_per_source=5):
                 continue
             print(f"✅ {source} RSS 获取成功，共 {len(feed.entries)} 条新闻")
 
-            articles = []
             for entry in feed.entries[:max_per_source]:
                 stats['total'] += 1
-                title = entry.get('title'， '无标题')
-                link = entry.get('link'， '') or entry.get('guid', '')
-                if not link:
+                title = entry.get('title', '无标题')
+                link = entry.get('link', '') or entry.get('guid', '')
+                
+                text = "（抓取失败）"
+                if link:
+                    text = fetch_article_text(link)
+                    if text == "（抓取失败）":
+                        stats['failed'] += 1
+                    else:
+                        stats['success'] += 1
+                else:
                     print(f"⚠️ {source} 的新闻 '{title}' 没有链接，跳过")
                     stats['failed'] += 1
-                    text = fetch_article_text(link)
-                if text == "（抓取失败）":
-                    stats['failed'] += 1
-                else:
-                    stats['success'] += 1
 
                 article_summary = f"【{source}】{title}\n{link}\n{text}\n\n"
                 category_content += article_summary
@@ -208,8 +206,7 @@ def fetch_rss_articles(rss_feeds, max_per_source=5):
             news_data[category] = category_content
 
     print(f"📊 抓取统计: 总 {stats['total']}，成功 {stats['success']}，失败 {stats['failed']}")
-    return news_data, analysis_text
-
+    return news_data, analysis_text, stats
 
 def summarize(text):
     completion = openai_client.chat.completions.create(
@@ -228,13 +225,16 @@ def summarize(text):
 
 def send_to_wechat(title, content):
     for key in SERVER_CHAN_KEYS:
-        url = f"https://sctapi.ftqq.com/{key}.send"
-        data = {"title": title, "desp": content}
-        response = requests.post(url, data=data, timeout=10)
-        if response.ok:
-            print(f"✅ 推送成功: {key}")
-        else:
-            print(f"❌ 推送失败: {key}, 响应：{response.text}")
+        try:
+            url = f"https://sctapi.ftqq.com/{key}.send"
+            data = {"title": title, "desp": content}
+            response = requests.post(url, data=data, timeout=10)
+            if response.ok:
+                print(f"✅ 推送成功: {key}")
+            else:
+                print(f"❌ 推送失败: {key}, 响应：{response.text}")
+        except Exception as e:
+            print(f"❌ 推送异常: {e}")
 
 if __name__ == "__main__":
     today_str = today_date().strftime("%Y-%m-%d")
