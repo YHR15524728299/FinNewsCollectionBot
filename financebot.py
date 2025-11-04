@@ -176,9 +176,9 @@ def fetch_rss_articles(rss_feeds, max_per_source=5):
     analysis_text = ""
     stats = {"total": 0, "success": 0, "failed": 0}
 
-    for category, sources 在 rss_feeds.items():
+    for category, sources in rss_feeds.items():
         category_content = ""
-        for source, url 在 sources.items():
+        for source, url in sources.items():
             print(f"📡 正在获取 {source} 的 RSS 源: {url}")
             feed = fetch_feed_with_retry(url)
             if not feed:
@@ -187,7 +187,7 @@ def fetch_rss_articles(rss_feeds, max_per_source=5):
             print(f"✅ {source} RSS 获取成功，共 {len(feed.entries)} 条新闻")
 
             articles = []
-            for entry 在 feed.entries[:max_per_source]:
+            for entry in feed.entries[:max_per_source]:
                 stats['total'] += 1
                 title = entry.get('title'， '无标题')
                 link = entry.get('link'， '') or entry.get('guid', '')
