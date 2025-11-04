@@ -58,12 +58,12 @@ def fetch_article_text(url, retries=3):
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/123.0.0.0 Safari/537.36"
         ),
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"，
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
         "Referer": "https://www.google.com/",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     }
 
-    for attempt 在 range(1, retries + 1):
+    for attempt in range(1, retries + 1):
         try:
             print(f"📰 正在爬取文章内容（第 {attempt} 次尝试）: {url}")
             article = Article(url)
