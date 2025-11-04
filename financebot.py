@@ -234,7 +234,7 @@ def fetch_rss_articles(rss_feeds, max_per_source=5):
 
 # AI 生成内容摘要（基于爬取的正文）
 def summarize(text):
-    completion = openai_client.chat。completions。create(
+    completion = openai_client.chat.completions。create(
         model="deepseek-chat"，
         messages=[
             {"role": "system", "content": """
