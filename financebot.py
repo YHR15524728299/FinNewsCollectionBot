@@ -1,6 +1,5 @@
-# financebot_enhanced.py
-# 高成功率抓取 + 重试 + 动态渲染 + ServerChan 分段推送
-# 保留原始 RSS 源和 AI 摘要 Prompt
+# financebot_final.py
+# ✅ 最终版：DeepSeek 摘要 + RSS 抓取 + ServerChan 推送（限制链接≤30条）
 
 from openai import OpenAI
 import feedparser
@@ -14,24 +13,26 @@ import random
 import re
 from urllib.parse import urlparse
 
-try:
-    from requests_html import HTMLSession
-    RENDER_AVAILABLE = True
-except Exception:
-    RENDER_AVAILABLE = False
-
+# =============================
+# 环境配置
+# =============================
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SERVER_CHAN_KEYS_ENV = os.getenv("SERVER_CHAN_KEYS")
-if not SERVER_CHAN_KEYS_ENV:
-    raise ValueError("环境变量 SERVER_CHAN_KEYS 未设置！")
-SERVER_CHAN_KEYS = [k.strip() for k in SERVER_CHAN_KEYS_ENV.split(",") if k.strip()]
-if not OPENAI_API_KEY:
-    raise ValueError("环境变量 OPENAI_API_KEY 未设置！")
 
+if not OPENAI_API_KEY:
+    raise ValueError("❌ 环境变量 OPENAI_API_KEY 未设置！")
+if not SERVER_CHAN_KEYS_ENV:
+    raise ValueError("❌ 环境变量 SERVER_CHAN_KEYS 未设置！")
+
+SERVER_CHAN_KEYS = [k.strip() for k in SERVER_CHAN_KEYS_ENV.split(",") if k.strip()]
+
+# DeepSeek Client
 openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url="https://api.deepseek.com/v1")
 DEEPSEEK_MODEL = "deepseek-chat"
 
-# RSS源（保持原样）
+# =============================
+# RSS 源（保持不改动）
+# =============================
 rss_feeds = {
     "💲 华尔街见闻": {"华尔街见闻": "https://dedicated.wallstreetcn.com/rss.xml"},
     "💻 36氪": {"36氪": "https://36kr.com/feed"},
@@ -55,127 +56,48 @@ rss_feeds = {
     },
 }
 
-FORCE_RENDER_DOMAINS = ["wallstreetcn.com", "36kr.com", "hket.com"]
-MAX_ARTICLE_LEN = 3000
-MAX_SEG_LEN = 1800
-
+# =============================
+# 工具函数
+# =============================
 def today_date():
-    return datetime.now(pytz.timezone("Asia/Shanghai")).date()
-
-def fetch_article_text(url, retries=3, use_render=True):
-    if not url:
-        return "（抓取失败）"
-    ua_list = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-    ]
-    headers = {
-        "User-Agent": random.choice(ua_list),
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "Referer": "https://www.google.com/",
-        "Connection": "keep-alive",
-    }
-    session = requests.Session()
-    session.headers.update(headers)
-    domain = urlparse(url).netloc or ""
-    if any(d in domain for d in FORCE_RENDER_DOMAINS):
-        use_render = True
-
-    for attempt in range(1, retries + 1):
-        try:
-            print(f"📰 抓取第 {attempt} 次: {url}")
-            resp = session.get(url, timeout=12, allow_redirects=True)
-            if resp.status_code != 200:
-                raise Exception(f"HTTP {resp.status_code}")
-
-            body = resp.text or ""
-            if "window.location" in body or "location.href" in body:
-                match = re.search(r"location\.href\s*=\s*['\"](.*?)['\"]", body)
-                if match:
-                    redirected = match.group(1)
-                    if redirected.startswith("//"):
-                        redirected = "https:" + redirected
-                    resp = session.get(redirected, timeout=12)
-                    body = resp.text or ""
-
-            article = Article(url)
-            article.set_html(body)
-            article.parse()
-            text = (article.text or "").strip()
-            if len(text) > 200:
-                print(f"✅ 抓取成功（{len(text)} 字）")
-                return text[:MAX_ARTICLE_LEN]
-            else:
-                print(f"⚠️ 文本太短（{len(text)} 字），重试...")
-        except Exception as e:
-            print(f"❌ 第 {attempt} 次失败: {e}")
-            time.sleep(2 * attempt)
-
-    if use_render and RENDER_AVAILABLE:
-        try:
-            print(f"⚙️ 尝试动态渲染: {url}")
-            session_r = HTMLSession()
-            r = session_r.get(url, timeout=20)
-            r.html.render(timeout=30, sleep=2)
-            paragraphs = [p.text for p in r.html.find('p') if len(p.text.strip()) > 40]
-            text = "\n".join(paragraphs).strip()
-            if len(text) > 200:
-                print(f"✅ 渲染成功（{len(text)} 字）")
-                return text[:MAX_ARTICLE_LEN]
-        except Exception as e:
-            print(f"❌ 渲染失败: {e}")
-
-    print(f"🚫 抓取失败: {url}")
-    return "（抓取失败）"
+    return datetime.now(pytz.timezone("Asia/Shanghai")).strftime("%Y-%m-%d")
 
 def fetch_feed_with_headers(url):
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
     return feedparser.parse(url, request_headers=headers)
 
-def fetch_feed_with_retry(url, retries=3):
+def fetch_feed_with_retry(url, retries=3, delay=5):
     for i in range(retries):
         try:
             feed = fetch_feed_with_headers(url)
-            if feed and hasattr(feed, 'entries') and feed.entries:
+            if feed and hasattr(feed, 'entries') and len(feed.entries) > 0:
                 return feed
         except Exception as e:
-            print(f"⚠️ 第 {i+1} 次尝试 {url} 失败: {e}")
-        time.sleep(2)
-    print(f"❌ RSS 跳过 {url}")
+            print(f"⚠️ 第 {i+1} 次获取 {url} 失败: {e}")
+        time.sleep(delay)
     return None
 
+# =============================
+# 抓取 RSS 并提取链接
+# =============================
 def fetch_rss_articles(rss_feeds, max_per_source=5):
-    news_data = {}
-    analysis_text = ""
-    stats = {"total": 0, "success": 0, "failed": 0}
+    links = []
     for category, sources in rss_feeds.items():
-        category_content = ""
         for source, url in sources.items():
-            print(f"📡 获取 {source} RSS: {url}")
             feed = fetch_feed_with_retry(url)
             if not feed:
                 continue
-            print(f"✅ {source} RSS成功，共 {len(feed.entries)} 条新闻")
             for entry in feed.entries[:max_per_source]:
-                stats['total'] += 1
-                title = entry.get('title', '无标题')
-                link = entry.get('link', '') or entry.get('guid', '')
-                if not link:
-                    stats['failed'] += 1
-                    continue
-                text = fetch_article_text(link)
-                if text == "（抓取失败）":
-                    stats['failed'] += 1
-                else:
-                    stats['success'] += 1
-                article_summary = f"【{source}】{title}\n{link}\n{text}\n\n"
-                category_content += article_summary
-                analysis_text += article_summary
-        if category_content:
-            news_data[category] = category_content
-    print(f"📊 总计: {stats['total']} 成功: {stats['success']} 失败: {stats['failed']}")
-    return news_data, analysis_text, stats
+                link = entry.get("link", "")
+                if link and link.startswith("http"):
+                    links.append(link)
+    return links
 
+# =============================
+# DeepSeek 摘要（保持你原版不改）
+# =============================
 def summarize(text):
     completion = openai_client.chat.completions.create(
         model=DEEPSEEK_MODEL,
@@ -191,29 +113,50 @@ def summarize(text):
     )
     return completion.choices[0].message.content.strip()
 
+# =============================
+# ServerChan 推送
+# =============================
 def send_to_wechat(title, content):
-    segments = [content[i:i+MAX_SEG_LEN] for i in range(0, len(content), MAX_SEG_LEN)]
     for key in SERVER_CHAN_KEYS:
-        for seg in segments:
-            url = f"https://sctapi.ftqq.com/{key}.send"
-            data = {"title": title, "desp": seg}
-            try:
-                resp = requests.post(url, data=data, timeout=10)
-                if resp.ok:
-                    print(f"✅ 推送成功: {key}")
-                else:
-                    print(f"❌ 推送失败: {key} {resp.text}")
-            except Exception as e:
-                print(f"❌ 推送异常: {e}")
+        url = f"https://sctapi.ftqq.com/{key}.send"
+        data = {"title": title, "desp": content}
+        resp = requests.post(url, data=data, timeout=10)
+        if resp.ok:
+            print(f"✅ 推送成功: {key}")
+        else:
+            print(f"❌ 推送失败: {key}, {resp.text}")
 
+# =============================
+# 主流程
+# =============================
 if __name__ == "__main__":
-    today_str = today_date().strftime("%Y-%m-%d")
-    articles_data, analysis_text, stats = fetch_rss_articles(rss_feeds, max_per_source=5)
-    summary = summarize(analysis_text) if analysis_text.strip() else "（无可用新闻内容生成摘要）"
+    today_str = today_date()
+    print("🚀 正在抓取 RSS 新闻 ...")
+    links = fetch_rss_articles(rss_feeds)
+    print(f"✅ 抓取完成，共 {len(links)} 条")
 
-    final_summary = f"📅 **{today_str} 财经新闻摘要**\n✍️ **今日分析总结：**\n{summary}\n\n---\n\n"
-    for category, content in articles_data.items():
-        if content.strip():
-            final_summary += f"## {category}\n{content}\n\n"
+    # 限制最多 30 条链接
+    links = links[:30]
+    joined_links = "\n".join([f"- {url}" for url in links])
 
-    send_to_wechat(title=f"📌 {today_str} 财经新闻摘要", content=final_summary)
+    print("🧠 正在生成 DeepSeek 摘要 ...")
+    summary = summarize("\n".join(links))
+
+    final_summary = f"""📅 **{today_str} 财经新闻摘要**
+
+✍️ **AI 摘要：**
+{summary}
+
+---
+
+📎 **新闻链接（共{len(links)}条）：**
+{joined_links}
+"""
+
+    # 控制方糖推送字数（约 2000 字安全）
+    if len(final_summary) > 2000:
+        final_summary = final_summary[:1900] + "\n\n...（内容过长，部分已省略）"
+
+    print("📤 正在推送至 ServerChan ...")
+    send_to_wechat(f"📌 {today_str} 财经新闻摘要", final_summary)
+    print("✅ 完成！")
