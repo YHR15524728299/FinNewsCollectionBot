@@ -125,8 +125,8 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
 
 # AI 生成内容摘要（基于爬取的正文）
 def summarize(text):
-    completion = openai_client.chat。completions。create(
-        model="deepseek-chat"，
+    completion = openai_client.chat.completions.create(
+        model="deepseek-chat",
         messages=[
             {"role": "system", "content": """
              你是一名专业的财经新闻分析师，请根据以下新闻内容，按照以下步骤完成任务：
@@ -136,7 +136,7 @@ def summarize(text):
                 - 复盘：梳理过去3个月该行业/主题的核心逻辑、关键动态与阶段性走势。
                 - 展望：判断该热点是短期炒作还是有持续行情潜力。
              3. 将以上分析整合为一篇1500字以内的财经热点摘要，逻辑清晰、重点突出，适合专业投资者阅读。
-             """}，
+             """},
             {"role": "user", "content": text}
         ]
     )
@@ -144,7 +144,7 @@ def summarize(text):
 
 # 发送微信推送
 def send_to_wechat(title, content):
-    for key 在 server_chan_keys:
+    for key in server_chan_keys:
         url = f"https://sctapi.ftqq.com/{key}.send"
         data = {"title": title, "desp": content}
         response = requests.post(url, data=data, timeout=10)
