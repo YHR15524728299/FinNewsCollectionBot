@@ -6,13 +6,7 @@
 ![GitHub Stars](https://img.shields.io/github/stars/sgrsun3/FinNewsCollectionBot?style=social)
 ![License](https://img.shields.io/github/license/sgrsun3/FinNewsCollectionBot)
 
----
-## 🧧 支持作者 · 让项目持续进化！
 
-如果本项目对你有帮助，欢迎打赏支持，资助我多喝几杯咖啡 ☕，跑更多模型 💻～
-
-
-> ✨ 金融爸爸一块钱我不嫌少，一百块我也不嫌多 😊
 ---
 
 ## 🎯 项目简介
