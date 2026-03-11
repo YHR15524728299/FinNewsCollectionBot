@@ -16,7 +16,21 @@ if not server_chan_keys_env:
     raise ValueError("环境变量 SERVER_CHAN_KEYS 未设置，请在Github Actions中设置此变量！")
 server_chan_keys = server_chan_keys_env.split(",")
 
-openai_client = OpenAI(api_key=openai_api_key, base_url="https://api.deepseek.com/v1")
+# 兼容多种免费/低价模型
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "doubao")  # doubao / deepseek / openai
+
+if MODEL_PROVIDER == "doubao":
+    openai_client = OpenAI(
+        api_key=os.getenv("DOUBAO_API_KEY"),  # 豆包 API Key
+        base_url="https://ark.cn-beijing.volces.com/api/v3"
+    )
+    MODEL_NAME = "doubao-pro-32k"
+elif MODEL_PROVIDER == "deepseek":
+    openai_client = OpenAI(api_key=openai_api_key, base_url="https://api.deepseek.com/v1")
+    MODEL_NAME = "deepseek-chat"
+else:
+    openai_client = OpenAI(api_key=openai_api_key)
+    MODEL_NAME = "gpt-4o-mini"
 
 # RSS源地址列表
 rss_feeds = {
@@ -57,7 +71,7 @@ def fetch_article_text(url):
         article = Article(url)
         article.download()
         article.parse()
-        text = article.text[:1500]  # 限制长度，防止超出 API 输入限制
+        text = article.text[:1500]
         if not text:
             print(f"⚠️ 文章内容为空: {url}")
         return text
@@ -71,7 +85,6 @@ def fetch_feed_with_headers(url):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     return feedparser.parse(url, request_headers=headers)
-
 
 # 自动重试获取 RSS
 def fetch_feed_with_retry(url, retries=3, delay=5):
@@ -89,7 +102,7 @@ def fetch_feed_with_retry(url, retries=3, delay=5):
 # 获取RSS内容（爬取正文但不展示）
 def fetch_rss_articles(rss_feeds, max_articles=10):
     news_data = {}
-    analysis_text = ""  # 用于AI分析的正文内容
+    analysis_text = ""
 
     for category, sources in rss_feeds.items():
         category_content = ""
@@ -101,7 +114,7 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
                 continue
             print(f"✅ {source} RSS 获取成功，共 {len(feed.entries)} 条新闻")
 
-            articles = []  # 每个source都需要重新初始化列表
+            articles = []
             for entry in feed.entries[:5]:
                 title = entry.get('title', '无标题')
                 link = entry.get('link', '') or entry.get('guid', '')
@@ -109,7 +122,6 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
                     print(f"⚠️ {source} 的新闻 '{title}' 没有链接，跳过")
                     continue
 
-                # 爬取正文用于分析（不展示）
                 article_text = fetch_article_text(link)
                 analysis_text += f"【{title}】\n{article_text}\n\n"
 
@@ -123,16 +135,16 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
 
     return news_data, analysis_text
 
-# AI 生成内容摘要（优化版：结构清晰、文字精简）
+# AI 生成内容摘要
 def summarize(text):
     completion = openai_client.chat.completions.create(
-        model="deepseek-chat",
+        model=MODEL_NAME,
         messages=[
             {"role": "system", "content": """你是顶级券商分析师，专为专业投资者服务。输出务必简洁、结构化。
 
-【输出格式 - 严格遵守】
+【输出格式】
 1. 一句话市场情绪（20字内）
-2. 今日热点板块（不超过3个）+ 核心催化剂（每条不超过15字）
+2. 今日热点板块（不超过3个）+ 核心催化剂（每条15字内）
 3. 关键新闻摘要（不超过5条，每条30字内）
 4. 明日策略建议（1-2句话）
 
@@ -141,7 +153,7 @@ def summarize(text):
 - 不要正确的废话
 - 数据+结论+行动
 - 全文不超过500字
-- 用emoji增加可读性"""},
+- 用emoji"""},
             {"role": "user", "content": text}
         ]
     )
@@ -158,21 +170,15 @@ def send_to_wechat(title, content):
         else:
             print(f"❌ 推送失败: {key}, 响应：{response.text}")
 
-
 if __name__ == "__main__":
     today_str = today_date().strftime("%Y-%m-%d")
 
-    # 每个网站获取最多 5 篇文章
     articles_data, analysis_text = fetch_rss_articles(rss_feeds, max_articles=5)
-    
-    # AI生成摘要
     summary = summarize(analysis_text)
 
-    # 生成仅展示标题和链接的最终消息
     final_summary = f"📅 **{today_str} 财经速览**\n\n{summary}\n\n---\n\n📰 **重点新闻**\n"
     for category, content in articles_data.items():
         if content.strip():
             final_summary += f"{category}\n{content}\n"
 
-    # 推送到多个server酱key
     send_to_wechat(title=f"📌 {today_str} 财经速览", content=final_summary)
