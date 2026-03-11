@@ -8,29 +8,23 @@ import time
 import pytz
 import os
 
-# OpenAI API Key
-openai_api_key = os.getenv("OPENAI_API_KEY")
+# 直接获取豆包API Key
+doubao_api_key = os.getenv("DOUBAO_API_KEY")
+if not doubao_api_key:
+    raise ValueError("环境变量 DOUBAO_API_KEY 未设置，请在Github Actions中设置此变量！")
+
 # 从环境变量获取 Server酱 SendKeys
 server_chan_keys_env = os.getenv("SERVER_CHAN_KEYS")
 if not server_chan_keys_env:
     raise ValueError("环境变量 SERVER_CHAN_KEYS 未设置，请在Github Actions中设置此变量！")
 server_chan_keys = server_chan_keys_env.split(",")
 
-# 兼容多种免费/低价模型
-MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "doubao")  # doubao / deepseek / openai
-
-if MODEL_PROVIDER == "doubao":
-    openai_client = OpenAI(
-        api_key=os.getenv("DOUBAO_API_KEY"),  # 豆包 API Key
-        base_url="https://ark.cn-beijing.volces.com/api/v3"
-    )
-    MODEL_NAME = "doubao-pro-4k"
-elif MODEL_PROVIDER == "deepseek":
-    openai_client = OpenAI(api_key=openai_api_key, base_url="https://api.deepseek.com/v1")
-    MODEL_NAME = "deepseek-chat"
-else:
-    openai_client = OpenAI(api_key=openai_api_key)
-    MODEL_NAME = "gpt-4o-mini"
+# 使用豆包模型
+openai_client = OpenAI(
+    api_key=doubao_api_key,
+    base_url="https://ark.cn-beijing.volces.com/api/v3"
+)
+MODEL_NAME = "doubao-pro-4k"
 
 # RSS源地址列表
 rss_feeds = {
