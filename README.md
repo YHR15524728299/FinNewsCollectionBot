@@ -11,12 +11,6 @@
 
 如果本项目对你有帮助，欢迎打赏支持，资助我多喝几杯咖啡 ☕，跑更多模型 💻～
 
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/0f8c1057-3ab2-4e87-8c32-5a7726214a5d" width="280" />
-</div>
-
-- 💬 微信号：`ArkhamKni9ht`
-- 🙌 感谢每一位 Star、Fork 和支持者！
 
 > ✨ 金融爸爸一块钱我不嫌少，一百块我也不嫌多 😊
 ---
