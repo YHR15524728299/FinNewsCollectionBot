@@ -30,7 +30,7 @@ rss_feeds = {
         "香港經濟日報":"https://www.hket.com/rss/china",
         "东方财富":"http://rss.eastmoney.com/rss_partener.xml",
         "百度股票焦点":"http://news.baidu.com/n?cmd=1&class=stock&tn=rss&sub=0",
-        "中新网":"https://www.chinanews.com.cn/rss/finance.xml",
+        "中国家网":"https://www.chinanews.com.cn/rss/finance.xml",
         "国家统计局-最新发布":"https://www.stats.gov.cn/sj/zxfb/rss.xml",
     },
       "🇺🇸 美国经济": {
@@ -123,20 +123,25 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
 
     return news_data, analysis_text
 
-# AI 生成内容摘要（基于爬取的正文）
+# AI 生成内容摘要（优化版：结构清晰、文字精简）
 def summarize(text):
     completion = openai_client.chat.completions.create(
         model="deepseek-chat",
         messages=[
-            {"role": "system", "content": """
-             你是一名专业的财经新闻分析师，不要有AI味道，要像个真正的人类，请根据以下新闻内容，按照以下步骤完成任务：
-             1. 提取新闻中涉及的主要行业和主题，找出近1天涨幅最高的3个行业或主题，以及近3天涨幅较高且此前2周表现平淡的3个行业/主题。（如新闻未提供具体涨幅，请结合描述和市场情绪推测热点）
-             2. 针对每个热点，输出：
-                - 催化剂：分析近期上涨的可能原因（政策、数据、事件、情绪等）。
-                - 复盘：梳理过去3个月该行业/主题的核心逻辑、关键动态与阶段性走势。
-                - 展望：判断该热点是短期炒作还是有持续行情潜力。
-             3. 将以上分析整合为一篇1500字以内的财经热点摘要，逻辑清晰、重点突出，适合专业投资者阅读。
-             """},
+            {"role": "system", "content": """你是顶级券商分析师，专为专业投资者服务。输出务必简洁、结构化。
+
+【输出格式 - 严格遵守】
+1. 一句话市场情绪（20字内）
+2. 今日热点板块（不超过3个）+ 核心催化剂（每条不超过15字）
+3. 关键新闻摘要（不超过5条，每条30字内）
+4. 明日策略建议（1-2句话）
+
+【原则】
+- 不要车轱辘话
+- 不要正确的废话
+- 数据+结论+行动
+- 全文不超过500字
+- 用emoji增加可读性"""},
             {"role": "user", "content": text}
         ]
     )
@@ -164,10 +169,10 @@ if __name__ == "__main__":
     summary = summarize(analysis_text)
 
     # 生成仅展示标题和链接的最终消息
-    final_summary = f"📅 **{today_str} 财经新闻摘要**\n\n✍️ **今日分析总结：**\n{summary}\n\n---\n\n"
+    final_summary = f"📅 **{today_str} 财经速览**\n\n{summary}\n\n---\n\n📰 **重点新闻**\n"
     for category, content in articles_data.items():
         if content.strip():
-            final_summary += f"## {category}\n{content}\n\n"
+            final_summary += f"{category}\n{content}\n"
 
     # 推送到多个server酱key
-    send_to_wechat(title=f"📌 {today_str} 财经新闻摘要", content=final_summary)
+    send_to_wechat(title=f"📌 {today_str} 财经速览", content=final_summary)
