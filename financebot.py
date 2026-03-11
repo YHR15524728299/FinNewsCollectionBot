@@ -24,7 +24,7 @@ if MODEL_PROVIDER == "doubao":
         api_key=os.getenv("DOUBAO_API_KEY"),  # 豆包 API Key
         base_url="https://ark.cn-beijing.volces.com/api/v3"
     )
-    MODEL_NAME = "doubao-pro-32k"
+    MODEL_NAME = "doubao-pro-4k"
 elif MODEL_PROVIDER == "deepseek":
     openai_client = OpenAI(api_key=openai_api_key, base_url="https://api.deepseek.com/v1")
     MODEL_NAME = "deepseek-chat"
