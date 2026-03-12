@@ -24,7 +24,7 @@ openai_client = OpenAI(
     api_key=doubao_api_key,
     base_url="https://ark.cn-beijing.volces.com/api/v3"
 )
-MODEL_NAME = "doubao-pro-4k"
+MODEL_NAME = "ep-20250207222854-wtnhv"
 
 # RSS源地址列表
 rss_feeds = {
