@@ -34,6 +34,22 @@ rss_feeds = {
     "💻 36氪":{
         "36氪":"https://36kr.com/feed",   
     },
+    "🇨🇳 中国经济": {
+        "香港經濟日報":"https://www.hket.com/rss/china",
+        "东方财富":"http://rss.eastmoney.com/rss_partener.xml",
+        "国家统计局-最新发布":"https://www.stats.gov.cn/sj/zxfb/rss.xml",
+    },
+    "🇺🇸 美国经济": {
+        "华尔街日报 - 经济":"https://feeds.content.dowjones.io/public/rss/WSJcomUSBusiness",
+        "华尔街日报 - 市场":"https://feeds.content.dowjones.io/public/rss/RSSMarketsMain",
+        "MarketWatch美股": "https://www.marketwatch.com/rss/topstories",
+        "ZeroHedge华尔街新闻": "https://feeds.feedburner.com/zerohedge/feed",
+        "ETF Trends": "https://www.etftrends.com/feed/",
+    },
+    "🌍 世界经济": {
+        "华尔街日报 - 经济":"https://feeds.content.dowjones.io/public/rss/socialeconomyfeed",
+        "BBC全球经济": "http://feeds.bbci.co.uk/news/business/rss.xml",
+    },
 }
 
 # 获取北京时间
@@ -91,7 +107,7 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
             print(f"✅ {source} RSS 获取成功，共 {len(feed.entries)} 条新闻")
 
             articles = []
-            for entry in feed.entries[:3]:
+            for entry in feed.entries[:5]:
                 title = entry.get('title', '无标题')
                 link = entry.get('link', '') or entry.get('guid', '')
                 if not link:
