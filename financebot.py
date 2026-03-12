@@ -8,10 +8,10 @@ import time
 import pytz
 import os
 
-# 直接获取豆包API Key
-doubao_api_key = os.getenv("DOUBAO_API_KEY")
-if not doubao_api_key:
-    raise ValueError("环境变量 DOUBAO_API_KEY 未设置，请在Github Actions中设置此变量！")
+# 获取 API Key（豆包使用 OpenAI 兼容接口）
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    raise ValueError("环境变量 OPENAI_API_KEY 未设置，请在Github Actions中设置此变量！")
 
 # 从环境变量获取 Server酱 SendKeys
 server_chan_keys_env = os.getenv("SERVER_CHAN_KEYS")
@@ -19,9 +19,9 @@ if not server_chan_keys_env:
     raise ValueError("环境变量 SERVER_CHAN_KEYS 未设置，请在Github Actions中设置此变量！")
 server_chan_keys = server_chan_keys_env.split(",")
 
-# 使用豆包模型
+# 使用豆包模型（OpenAI 兼容接口）
 openai_client = OpenAI(
-    api_key=doubao_api_key,
+    api_key=api_key,
     base_url="https://ark.cn-beijing.volces.com/api/v3"
 )
 MODEL_NAME = "ep-20250207222854-wtnhv"
