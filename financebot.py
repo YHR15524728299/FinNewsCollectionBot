@@ -1,5 +1,3 @@
-print(f"运行时实际使用的API Key前10位: {api_key[:10]}")
-print(f"运行时实际使用的模型ID: {MODEL_NAME}")
 # 福生无量天尊
 from openai import OpenAI
 import feedparser
@@ -191,3 +189,6 @@ if __name__ == "__main__":
             final_summary += f"{category}\n{content}\n"
 
     send_to_wechat(title=f"📌 {today_str} 财经速览", content=final_summary)
+
+print(f"运行时实际使用的API Key前10位: {api_key[:10]}")
+print(f"运行时实际使用的模型ID: {MODEL_NAME}")
