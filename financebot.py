@@ -1,3 +1,5 @@
+print(f"运行时实际使用的API Key前10位: {api_key[:10]}")
+print(f"运行时实际使用的模型ID: {MODEL_NAME}")
 # 福生无量天尊
 from openai import OpenAI
 import feedparser
