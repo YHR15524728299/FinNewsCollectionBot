@@ -24,7 +24,7 @@ openai_client = OpenAI(
     api_key=api_key,
     base_url="https://ark.cn-beijing.volces.com/api/v3"
 )
-MODEL_NAME = "ep-20260312144202-82g5m"
+MODEL_NAME = "ep-20260412184307-98fmn"
 
 # RSS源地址列表
 rss_feeds = {
