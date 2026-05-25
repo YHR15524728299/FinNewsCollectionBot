@@ -9,7 +9,7 @@ import pytz
 import os
 
 # 获取 API Key（豆包使用 OpenAI 兼容接口）
-api_key = os.getenv("OPENAI_API_KEY")
+api_key = os.getenv("openai") or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI")
 if not api_key:
     raise ValueError("环境变量 OPENAI_API_KEY 未设置，请在Github Actions中设置此变量！")
 
@@ -22,9 +22,9 @@ server_chan_keys = server_chan_keys_env.split(",")
 # 使用豆包模型（OpenAI 兼容接口）
 openai_client = OpenAI(
     api_key=api_key,
-    base_url="https://ark.cn-beijing.volces.com/api/v3"
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
-MODEL_NAME = "ep-20260412184307-98fmn"
+MODEL_NAME = "qwen3.7-max"
 
 # RSS源地址列表
 rss_feeds = {
