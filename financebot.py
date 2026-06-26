@@ -25,7 +25,49 @@ openai_client = OpenAI(
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
-MODEL_NAME = "qwen3.7-max"
+# =========================
+# LLM Router (expiry + fallback)
+# =========================
+from datetime import datetime
+
+MODEL_POOL = [
+    {"name": "glm-5.2", "expiry": "2026-09-15"},
+    {"name": "qwen3.7-max-preview", "expiry": "2026-08-24"},
+    {"name": "kimi-k2.6", "expiry": "2026-07-21"},
+    {"name": "deepseek-v4-flash", "expiry": "2026-07-24"},
+]
+
+
+def sort_models():
+    return sorted(
+        MODEL_POOL,
+        key=lambda x: datetime.strptime(x["expiry"], "%Y-%m-%d"),
+        reverse=True
+    )
+
+
+def call_llm(messages):
+    last_error = None
+
+    for m in sort_models():
+        try:
+            print(f"🧠 使用模型: {m['name']}")
+
+            resp = openai_client.chat.completions.create(
+                model=m["name"],
+                messages=messages,
+                timeout=20
+            )
+
+            return resp.choices[0].message.content.strip()
+
+        except Exception as e:
+            print(f"❌ 模型失败 {m['name']} -> {e}")
+            last_error = e
+            continue
+
+    raise Exception(f"所有模型均失败: {last_error}")
+
 
 rss_feeds = {
     "💲 华尔街见闻":{
@@ -108,20 +150,19 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
 
     return news_data, analysis_text
 
+
 def summarize(text):
-    completion = openai_client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role":"system","content":"你是顶级券商分析师"},
-            {"role":"user","content":text}
-        ]
-    )
-    return completion.choices[0].message.content.strip()
+    return call_llm([
+        {"role": "system", "content": "你是顶级券商分析师"},
+        {"role": "user", "content": text}
+    ])
+
 
 def send_to_wechat(title, content):
     for key in server_chan_keys:
         url = f"https://sctapi.ftqq.com/{key}.send"
         requests.post(url, data={"title":title,"desp":content}, timeout=10)
+
 
 if __name__ == "__main__":
     today_str = today_date().strftime("%Y-%m-%d")
