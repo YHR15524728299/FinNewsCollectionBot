@@ -8,10 +8,10 @@ import time
 import pytz
 import os
 
-# API Key（DashScope）
-api_key = os.getenv("DASHSCOPE_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI")
+# API Key（统一使用 GitHub Secrets: ZHIPU_API_KEY）
+api_key = os.getenv("ZHIPU_API_KEY")
 if not api_key:
-    raise ValueError("环境变量 DASHSCOPE_API_KEY 未设置，请在Github Actions中配置")
+    raise ValueError("环境变量 ZHIPU_API_KEY 未设置，请在Github Actions中配置")
 
 # Server酱
 server_chan_keys_env = os.getenv("SERVER_CHAN_KEYS")
