@@ -8,26 +8,25 @@ import time
 import pytz
 import os
 
-# 获取 API Key（GLM / OpenAI 兼容接口）
-api_key = os.getenv("ZHIPU_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI")
+# API Key（DashScope）
+api_key = os.getenv("DASHSCOPE_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI")
 if not api_key:
-    raise ValueError("环境变量 ZHIPU_API_KEY 未设置，请在Github Actions中设置此变量！")
+    raise ValueError("环境变量 DASHSCOPE_API_KEY 未设置，请在Github Actions中配置")
 
-# 从环境变量获取 Server酱 SendKeys
+# Server酱
 server_chan_keys_env = os.getenv("SERVER_CHAN_KEYS")
 if not server_chan_keys_env:
-    raise ValueError("环境变量 SERVER_CHAN_KEYS 未设置，请在Github Actions中设置此变量！")
+    raise ValueError("环境变量 SERVER_CHAN_KEYS 未设置")
 server_chan_keys = server_chan_keys_env.split(",")
 
-# 使用 GLM OpenAI 兼容接口
+# DashScope OpenAI compatible
 openai_client = OpenAI(
     api_key=api_key,
-    base_url="https://llm-eklvu5yxpltr5j2l.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
-MODEL_NAME = "glm-5.2"
+MODEL_NAME = "qwen3.7-max"
 
-# RSS源地址列表
 rss_feeds = {
     "💲 华尔街见闻":{
         "华尔街见闻":"https://dedicated.wallstreetcn.com/rss.xml",      
@@ -58,34 +57,25 @@ def today_date():
 
 def fetch_article_text(url):
     try:
-        print(f"📰 正在爬取文章内容: {url}")
         article = Article(url)
         article.download()
         article.parse()
-        text = article.text[:800]
-        if not text:
-            print(f"⚠️ 文章内容为空: {url}")
-        return text
-    except Exception as e:
-        print(f"❌ 文章爬取失败: {url}，错误: {e}")
-        return "（未能获取文章正文）"
+        return article.text[:800] if article.text else "（未能获取正文）"
+    except:
+        return "（未能获取正文）"
 
 def fetch_feed_with_headers(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
+    headers = {'User-Agent':'Mozilla/5.0'}
     return feedparser.parse(url, request_headers=headers)
 
 def fetch_feed_with_retry(url, retries=3, delay=5):
     for i in range(retries):
         try:
             feed = fetch_feed_with_headers(url)
-            if feed and hasattr(feed, 'entries') and len(feed.entries) > 0:
+            if feed and len(feed.entries) > 0:
                 return feed
-        except Exception as e:
-            print(f"⚠️ 第 {i+1} 次请求 {url} 失败: {e}")
+        except:
             time.sleep(delay)
-    print(f"❌ 跳过 {url}, 尝试 {retries} 次后仍失败。")
     return None
 
 def fetch_rss_articles(rss_feeds, max_articles=10):
@@ -95,20 +85,19 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
     for category, sources in rss_feeds.items():
         category_content = ""
         for source, url in sources.items():
-            print(f"📡 正在获取 {source} 的 RSS 源: {url}")
             feed = fetch_feed_with_retry(url)
             if not feed:
                 continue
 
             articles = []
             for entry in feed.entries[:5]:
-                title = entry.get('title', '无标题')
-                link = entry.get('link', '') or entry.get('guid', '')
+                title = entry.get('title','无标题')
+                link = entry.get('link','') or entry.get('guid','')
                 if not link:
                     continue
 
-                article_text = fetch_article_text(link)
-                analysis_text += f"【{title}】\n{article_text}\n\n"
+                text = fetch_article_text(link)
+                analysis_text += f"【{title}】\n{text}\n\n"
 
                 articles.append(f"- [{title}]({link})")
 
@@ -123,8 +112,8 @@ def summarize(text):
     completion = openai_client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
-            {"role": "system", "content": "你是顶级券商分析师，输出结构化金融分析"},
-            {"role": "user", "content": text}
+            {"role":"system","content":"你是顶级券商分析师"},
+            {"role":"user","content":text}
         ]
     )
     return completion.choices[0].message.content.strip()
@@ -132,18 +121,14 @@ def summarize(text):
 def send_to_wechat(title, content):
     for key in server_chan_keys:
         url = f"https://sctapi.ftqq.com/{key}.send"
-        requests.post(url, data={"title": title, "desp": content}, timeout=10)
+        requests.post(url, data={"title":title,"desp":content}, timeout=10)
 
 if __name__ == "__main__":
     today_str = today_date().strftime("%Y-%m-%d")
-    articles_data, analysis_text = fetch_rss_articles(rss_feeds, max_articles=5)
+    _, analysis_text = fetch_rss_articles(rss_feeds, max_articles=5)
     summary = summarize(analysis_text)
 
-    final_summary = f"📅 {today_str} 财经速览\n\n{summary}\n\n"
+    final = f"📅 {today_str} 财经速览\n\n{summary}\n"
 
-    for category, content in articles_data.items():
-        if content.strip():
-            final_summary += f"{category}\n{content}\n"
-
-    send_to_wechat(f"{today_str} 财经速览", final_summary)
+    send_to_wechat(f"{today_str} 财经速览", final)
     print("DONE")
