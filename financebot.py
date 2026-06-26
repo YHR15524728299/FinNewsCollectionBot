@@ -22,7 +22,7 @@ server_chan_keys = server_chan_keys_env.split(",")
 # 使用 GLM OpenAI 兼容接口
 openai_client = OpenAI(
     api_key=api_key,
-    base_url="https://open.bigmodel.cn/api/paas/v4",
+    base_url="https://llm-eklvu5yxpltr5j2l.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
 )
 
 MODEL_NAME = "glm-5.2"
