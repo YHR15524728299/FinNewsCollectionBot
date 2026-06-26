@@ -8,10 +8,10 @@ import time
 import pytz
 import os
 
-# 获取 API Key（豆包使用 OpenAI 兼容接口）
-api_key = os.getenv("openai") or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI")
+# 获取 API Key（GLM / OpenAI 兼容接口）
+api_key = os.getenv("ZHIPU_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI")
 if not api_key:
-    raise ValueError("环境变量 OPENAI_API_KEY 未设置，请在Github Actions中设置此变量！")
+    raise ValueError("环境变量 ZHIPU_API_KEY 未设置，请在Github Actions中设置此变量！")
 
 # 从环境变量获取 Server酱 SendKeys
 server_chan_keys_env = os.getenv("SERVER_CHAN_KEYS")
@@ -19,12 +19,13 @@ if not server_chan_keys_env:
     raise ValueError("环境变量 SERVER_CHAN_KEYS 未设置，请在Github Actions中设置此变量！")
 server_chan_keys = server_chan_keys_env.split(",")
 
-# 使用豆包模型（OpenAI 兼容接口）
+# 使用 GLM OpenAI 兼容接口
 openai_client = OpenAI(
     api_key=api_key,
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    base_url="https://open.bigmodel.cn/api/paas/v4",
 )
-MODEL_NAME = "qwen3.7-max"
+
+MODEL_NAME = "glm-5.2"
 
 # RSS源地址列表
 rss_feeds = {
@@ -32,7 +33,7 @@ rss_feeds = {
         "华尔街见闻":"https://dedicated.wallstreetcn.com/rss.xml",      
     },
     "💻 36氪":{
-        "36氪":"https://36kr.com/feed",   
+        "36kr":"https://36kr.com/feed",   
     },
     "🇨🇳 中国经济": {
         "香港經濟日報":"https://www.hket.com/rss/china",
@@ -52,11 +53,9 @@ rss_feeds = {
     },
 }
 
-# 获取北京时间
 def today_date():
     return datetime.now(pytz.timezone("Asia/Shanghai")).date()
 
-# 爬取网页正文 (用于 AI 分析，但不展示)
 def fetch_article_text(url):
     try:
         print(f"📰 正在爬取文章内容: {url}")
@@ -71,14 +70,12 @@ def fetch_article_text(url):
         print(f"❌ 文章爬取失败: {url}，错误: {e}")
         return "（未能获取文章正文）"
 
-# 添加 User-Agent 头
 def fetch_feed_with_headers(url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     return feedparser.parse(url, request_headers=headers)
 
-# 自动重试获取 RSS
 def fetch_feed_with_retry(url, retries=3, delay=5):
     for i in range(retries):
         try:
@@ -91,7 +88,6 @@ def fetch_feed_with_retry(url, retries=3, delay=5):
     print(f"❌ 跳过 {url}, 尝试 {retries} 次后仍失败。")
     return None
 
-# 获取RSS内容（爬取正文但不展示）
 def fetch_rss_articles(rss_feeds, max_articles=10):
     news_data = {}
     analysis_text = ""
@@ -102,22 +98,18 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
             print(f"📡 正在获取 {source} 的 RSS 源: {url}")
             feed = fetch_feed_with_retry(url)
             if not feed:
-                print(f"⚠️ 无法获取 {source} 的 RSS 数据")
                 continue
-            print(f"✅ {source} RSS 获取成功，共 {len(feed.entries)} 条新闻")
 
             articles = []
             for entry in feed.entries[:5]:
                 title = entry.get('title', '无标题')
                 link = entry.get('link', '') or entry.get('guid', '')
                 if not link:
-                    print(f"⚠️ {source} 的新闻 '{title}' 没有链接，跳过")
                     continue
 
                 article_text = fetch_article_text(link)
                 analysis_text += f"【{title}】\n{article_text}\n\n"
 
-                print(f"🔹 {source} - {title} 获取成功")
                 articles.append(f"- [{title}]({link})")
 
             if articles:
@@ -127,68 +119,31 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
 
     return news_data, analysis_text
 
-# AI 生成内容摘要
 def summarize(text):
     completion = openai_client.chat.completions.create(
         model=MODEL_NAME,
         messages=[
-            {"role": "system", "content": """你是顶级券商分析师，专为专业投资者服务。请根据新闻内容完成以下分析：
-
-## 一、市场情绪
-一句话概括当前市场状态（30字内）
-
-## 二、热点行业/主题分析
-找出近1日涨幅最高的3个行业或主题，以及近3天涨幅较高且此前2周表现平淡的3个行业/主题。（如新闻未提供具体涨幅，请结合描述和市场情绪推测）
-
-针对每个热点，按以下结构分析：
-
-### 热点名称
-- **催化剂：** 触发上涨的原因（政策、数据、事件、情绪等）
-- **复盘：** 梳理过去1个月该行业/主题的核心逻辑、关键动态与阶段性走势
-- **展望：** 判断该热点是短期炒作还是有持续行情潜力
-
-## 三、关键新闻速览
-5-8条重要新闻，每条一句话要点
-
-## 四、未来一周的重要事件预告
-找出未来一周的关键重点时间预告，每条1-2句话描述
-
-## 五、策略建议
-明日操作建议（2-3句话）
-
-【原则】
-- 逻辑清晰、重点突出
-- 数据+逻辑+结论
-- 用emoji增强可读性
-- 全文控制在1500字以内"""},
+            {"role": "system", "content": "你是顶级券商分析师，输出结构化金融分析"},
             {"role": "user", "content": text}
         ]
     )
     return completion.choices[0].message.content.strip()
 
-# 发送微信推送
 def send_to_wechat(title, content):
     for key in server_chan_keys:
         url = f"https://sctapi.ftqq.com/{key}.send"
-        data = {"title": title, "desp": content}
-        response = requests.post(url, data=data, timeout=10)
-        if response.ok:
-            print(f"✅ 推送成功: {key}")
-        else:
-            print(f"❌ 推送失败: {key}, 响应：{response.text}")
+        requests.post(url, data={"title": title, "desp": content}, timeout=10)
 
 if __name__ == "__main__":
     today_str = today_date().strftime("%Y-%m-%d")
-
     articles_data, analysis_text = fetch_rss_articles(rss_feeds, max_articles=5)
     summary = summarize(analysis_text)
 
-    final_summary = f"📅 **{today_str} 财经速览**\n\n{summary}\n\n---\n\n📰 **重点新闻**\n"
+    final_summary = f"📅 {today_str} 财经速览\n\n{summary}\n\n"
+
     for category, content in articles_data.items():
         if content.strip():
             final_summary += f"{category}\n{content}\n"
 
-    send_to_wechat(title=f"📌 {today_str} 财经速览", content=final_summary)
-
-print(f"运行时实际使用的API Key前10位: {api_key[:10]}")
-print(f"运行时实际使用的模型ID: {MODEL_NAME}")
+    send_to_wechat(f"{today_str} 财经速览", final_summary)
+    print("DONE")
