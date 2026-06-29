@@ -1,98 +1,145 @@
-# 📈 FinNewsCollectionBot · 每日财经速递
+# FinNewsCollectionBot 本地版
 
-**为专业投资者打造的智能财经资讯助手**
+本项目在本地抓取财经 RSS，调用本机 Ollama LLM 生成财经速览，并保存为 Markdown 文件。Server 酱推送为可选项。
 
-[![📡 RSS 财经新闻自动推送](https://github.com/sgrsun3/FinNewsCollectionBot/actions/workflows/rss-bot.yml/badge.svg)](https://github.com/sgrsun3/FinNewsCollectionBot/actions/workflows/rss-bot.yml)
-![GitHub Stars](https://img.shields.io/github/stars/sgrsun3/FinNewsCollectionBot?style=social)
-![License](https://img.shields.io/github/license/sgrsun3/FinNewsCollectionBot)
+## 运行入口
 
+推荐窗口入口：
 
----
-
-## 🎯 项目简介
-
-FinNewsCollectionBot 是一款为券商分析师、基金经理、研究员等专业投资人量身打造的**财经资讯智能摘要助手**。
-
-它自动聚合主流财经媒体的 RSS 信息源，并调用 **豆包 大语言模型**，每天两次推送核心财经摘要，帮助你快速掌握全球市场动态、产业趋势与政策走向。
-
----
-
-## 🚀 核心功能
-
-- ⏰ **每日两次自动摘要推送**  
-  每天上午 09:00、下午 17:00 定时运行，生成分析报告
-
-- 🌐 **多源财经 RSS 聚合**  
-  支持华尔街见闻、36氪、东方财富、华尔街日报、BBC 等主流财经媒体
-
-- 🧠 **大模型深度分析**  
-  使用 豆包 大语言模型自动提炼财经新闻的核心内容与趋势判断
-
-- 📲 **微信即时推送**  
-  集成 Server 酱服务，生成的财经摘要自动推送至你的微信
-
----
-
-## 🧑‍💻 技术栈
-
-- Python
-- feedparser + newspaper3k
-- 豆包 大语言模型 API
-- GitHub Actions 自动定时部署
-
----
-
-## 🔧 快速开始（快速部署）
-
-1. **Fork 本项目**
-2. 配置你的 RSS 源地址和 豆包 API Key
-3. 在 GitHub 中设置 Secrets：
-   ```bash
-   DOUBAO_API_KEY=your_豆包_api_key
-   SERVER_CHAN_KEYS=your_serverchan_key
-   ```
-4. 自动触发 GitHub Actions 开始运行
-
-📌 成功部署后，每天两次财经摘要将自动生成并推送到你的微信！
-
----
-
-## 💼 使用场景
-
-- 券商/基金公司/研究所自动生成投资快报
-- 金融从业者日常资讯监测
-- 个人投资者快捷了解宏观政策/产业热点
-- 财经内容运营/财经公众号 AI 辅助创作
-
----
-
-## 📌 示例流程图
-
-```mermaid
-graph TD
-  A[财经RSS源] --> B[抓取文章]
-  B --> C[调用豆包大模型]
-  C --> D[生成财经摘要]
-  D --> E[Server酱推送到微信]
+```powershell
+.\start_gui.ps1
 ```
 
----
+窗口里可以选择 Ollama 模型、设置最大文章数、查看运行状态、运行日志和最终报告。
 
-## 🛠️ 后续规划
+命令行入口：
 
-- ✅ 增加更多 RSS 财经数据源
-- ✅ 引入情绪分析与金融事件检测
-- ⏳ 支持多语言财经摘要生成
-- ⏳ 构建简洁前端页面用于非技术用户管理配置
+```powershell
+.\start_local.ps1 -NoPush
+```
 
----
+启动后会读取 `ollama list`，显示本机已安装模型，输入编号即可启动。
 
-## 🤝 欢迎参与
+直接指定模型：
 
-📬 欢迎 Star ⭐ / Fork 🍴 / PR 💡 本项目，一起共建更智能的财经决策工具。
+```powershell
+.\start_local.ps1 -Model qwen2.5:7b -NoPush
+```
 
-你也可以通过 Issues 留言建议功能，或私信我交流使用体验～
+等价 Python 入口：
 
----
+```powershell
+.\.venv\Scripts\python.exe local_launcher.py --no-push
+```
 
-© 2024 sgrsun3 | MIT License
+跳过选择器并指定模型：
+
+```powershell
+.\.venv\Scripts\python.exe local_launcher.py --model qwen2.5:7b --no-push
+```
+
+输出文件：
+
+```text
+outputs/finance-news-YYYY-MM-DD.md
+```
+
+## 本地准备
+
+1. 安装并启动 Ollama。
+
+2. 拉取默认模型：
+
+```powershell
+ollama pull qwen2.5:7b
+```
+
+3. 创建 Python 虚拟环境并安装依赖：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+4. 启动本地任务：
+
+窗口版：
+
+```powershell
+.\start_gui.ps1
+```
+
+命令行版：
+
+```powershell
+.\start_local.ps1 -NoPush
+```
+
+选择界面示例：
+
+```text
+可用 Ollama 模型:
+1. qwen2.5:7b
+2. llama3.1:8b
+m. 手动输入模型名
+选择模型 [1-2，默认 1]:
+```
+
+## 可配置项
+
+| 变量 | 默认值 | 说明 |
+|---|---:|---|
+| `OLLAMA_BASE_URL` | `http://localhost:11434/v1` | Ollama OpenAI compatible endpoint |
+| `OLLAMA_MODEL` | `qwen2.5:7b` | 本地模型名 |
+| `LLM_MODELS` | 空 | 多模型逗号分隔，失败时按顺序切换 |
+| `SERVER_CHAN_KEYS` | 空 | 可选，配置后推送到 Server 酱 |
+
+## 窗口版说明
+
+窗口左侧是操作区：
+
+- `Ollama 地址`：默认 `http://localhost:11434/v1`
+- `模型`：自动读取 `ollama list`，也可以手动输入模型名
+- `每个来源最多文章数`：控制每个 RSS 来源抓取数量
+- `推送到 Server 酱`：默认关闭
+
+窗口右侧是输出区：
+
+- `状态区`：显示当前步骤和输出文件
+- `运行日志`：显示抓取、分析、保存等过程
+- `最终报告`：任务完成后显示完整 Markdown 正文
+
+示例：
+
+```powershell
+$env:OLLAMA_MODEL="qwen2.5:14b"
+$env:OLLAMA_BASE_URL="http://localhost:11434/v1"
+.\start_local.ps1 -NoPush
+```
+
+也可以不设置环境变量，直接传参：
+
+```powershell
+.\start_local.ps1 -Model qwen2.5:14b -NoPush
+```
+
+## 微信推送
+
+不配置 `SERVER_CHAN_KEYS` 时，任务只生成本地 Markdown，不推送微信。
+
+需要推送时：
+
+```powershell
+$env:SERVER_CHAN_KEYS="your_serverchan_key"
+.\start_local.ps1
+```
+
+多个 key 用英文逗号分隔。
+
+## 当前流程
+
+1. 抓取 RSS 新闻源。
+2. 提取正文片段。
+3. 调用本地 Ollama 模型生成财经速览。
+4. 保存到 `outputs/`。
+5. 如配置 `SERVER_CHAN_KEYS`，同步推送到微信。
