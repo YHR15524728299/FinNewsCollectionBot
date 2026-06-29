@@ -19,23 +19,23 @@ if not server_chan_keys_env:
     raise ValueError("环境变量 SERVER_CHAN_KEYS 未设置")
 server_chan_keys = server_chan_keys_env.split(",")
 
-# DashScope OpenAI compatible
+# 阿里云百炼 OpenAI compatible endpoint
 openai_client = OpenAI(
     api_key=api_key,
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    base_url="https://llm-eklvu5yxpltr5j2l.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
 )
 
 # =========================
-# LLM Router (expiry + fallback)
+# LLM Router：按免费额度到期时间排序，失败自动切换
 # =========================
-from datetime import datetime
-
 MODEL_POOL = [
     {"name": "glm-5.2", "expiry": "2026-09-15"},
     {"name": "qwen3.7-max-preview", "expiry": "2026-08-24"},
-    {"name": "kimi-k2.6", "expiry": "2026-07-21"},
     {"name": "deepseek-v4-flash", "expiry": "2026-07-24"},
+    {"name": "kimi-k2.6", "expiry": "2026-07-21"},
 ]
+
+LLM_TIMEOUT_SECONDS = 120
 
 
 def sort_models():
@@ -49,20 +49,18 @@ def sort_models():
 def call_llm(messages):
     last_error = None
 
-    for m in sort_models():
+    for model_item in sort_models():
+        model_name = model_item["name"]
         try:
-            print(f"🧠 使用模型: {m['name']}")
-
-            resp = openai_client.chat.completions.create(
-                model=m["name"],
+            print(f"🧠 使用模型: {model_name}")
+            completion = openai_client.chat.completions.create(
+                model=model_name,
                 messages=messages,
-                timeout=20
+                timeout=LLM_TIMEOUT_SECONDS
             )
-
-            return resp.choices[0].message.content.strip()
-
+            return completion.choices[0].message.content.strip()
         except Exception as e:
-            print(f"❌ 模型失败 {m['name']} -> {e}")
+            print(f"❌ 模型失败 {model_name} -> {e}")
             last_error = e
             continue
 
@@ -153,7 +151,35 @@ def fetch_rss_articles(rss_feeds, max_articles=10):
 
 def summarize(text):
     return call_llm([
-        {"role": "system", "content": "你是顶级券商分析师"},
+        {"role": "system", "content": """你是顶级券商分析师，专为专业投资者服务。请根据新闻内容完成以下分析：
+
+## 一、市场情绪
+一句话概括当前市场状态（30字内）
+
+## 二、热点行业/主题分析
+找出近1日涨幅最高的3个行业或主题，以及近3天涨幅较高且此前2周表现平淡的3个行业/主题。（如新闻未提供具体涨幅，请结合描述和市场情绪推测）
+
+针对每个热点，按以下结构分析：
+
+### 热点名称
+- **催化剂：** 触发上涨的原因（政策、数据、事件、情绪等）
+- **复盘：** 梳理过去1个月该行业/主题的核心逻辑、关键动态与阶段性走势
+- **展望：** 判断该热点是短期炒作还是有持续行情潜力
+
+## 三、关键新闻速览
+5-8条重要新闻，每条一句话要点
+
+## 四、未来一周的重要事件预告
+找出未来一周的关键重点时间预告，每条1-2句话描述
+
+## 五、策略建议
+明日操作建议（2-3句话）
+
+【原则】
+- 逻辑清晰、重点突出
+- 数据+逻辑+结论
+- 用emoji增强可读性
+- 全文控制在1500字以内"""},
         {"role": "user", "content": text}
     ])
 
@@ -166,10 +192,14 @@ def send_to_wechat(title, content):
 
 if __name__ == "__main__":
     today_str = today_date().strftime("%Y-%m-%d")
-    _, analysis_text = fetch_rss_articles(rss_feeds, max_articles=5)
+    articles_data, analysis_text = fetch_rss_articles(rss_feeds, max_articles=5)
     summary = summarize(analysis_text)
 
-    final = f"📅 {today_str} 财经速览\n\n{summary}\n"
+    final_summary = f"📅 {today_str} 财经速览\n\n{summary}\n\n---\n\n📰 重点新闻\n"
 
-    send_to_wechat(f"{today_str} 财经速览", final)
+    for category, content in articles_data.items():
+        if content.strip():
+            final_summary += f"{category}\n{content}\n"
+
+    send_to_wechat(f"{today_str} 财经速览", final_summary)
     print("DONE")
